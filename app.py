@@ -3,6 +3,7 @@ Moneyball App — find market inefficiencies in MLB player valuation.
 """
 
 from flask import Flask, render_template, request, jsonify, redirect
+from datetime import date
 from dotenv import load_dotenv
 import json
 import os
@@ -13,9 +14,9 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'moneyball-dev')
 
-VERSION        = '0.2.0'
-CURRENT_SEASON = 2025
+VERSION        = '0.2.1'
 FIRST_SEASON   = 1980
+CURRENT_SEASON = date.today().year
 ALL_SEASONS    = list(range(CURRENT_SEASON, FIRST_SEASON - 1, -1))
 
 
