@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block title %}Admin — Moneyball{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Data Admin</h1>
+  <p class="subtitle">Manage season cache · Baseball Reference + Baseball Savant</p>
+</div>
+
+<!-- Fetch progress banner -->
+<div id="progress-banner" class="progress-banner {% if not status.running %}hidden{% endif %}">
+  <span class="progress-spin">⟳</span>
+  <span id="progress-text">
+    {% if status.running %}
+      Fetching {{ status.current }} — {{ status.done }} / {{ status.total }} seasons done...
+    {% endif %}
+  </span>
+  <span class="progress-note">This page auto-updates.</span>
+</div>
+
+<!-- Bulk fetch controls -->
+<div class="card admin-card">
+  <h2>Bulk Fetch</h2>
+  <p class="text-dim">Fetches all seasons in the background. Each season takes ~15–30 seconds (BRef rate limits). A full 1980–{{ CURRENT_SEASON }} run takes roughly 20–40 minutes.</p>
+  <div class="bulk-controls">
+    <label>From
+      <select id="range-start">
+        {% for yr in all_seasons | reverse %}
+        <option value="{{ yr }}" {% if yr == 1980 %}selected{% endif %}>{{ yr }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>To
+      <select id="range-end">
+        {% for yr in all_seasons %}
+        <option value="{{ yr }}" {% if yr == CURRENT_SEASON %}selected{% endif %}>{{ yr }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary" onclick="startRangeFetch()" {% if status.running %}disabled{% endif %}>
+      ▶ Fetch Range
+    </button>
+    <button class="btn btn-ghost" onclick="startRangeFetch(true)" {% if status.running %}disabled{% endif %}>
+      Fetch Missing Only
+    </button>
+  </div>
+</div>
+
+<!-- Season table -->
+<div class="card admin-card">
+  <h2>Season Cache Status</h2>
+  <table class="data-table admin-season-table">
+    <thead>
+      <tr>
+        <th>Season</th>
+        <th>Batters</th>
+        <th>Pitchers</th>
+        <th>Statcast</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for yr in all_seasons %}
+    {% set s = seasons.get(yr, {}) %}
+    {% set cached = s.get('bat', 0) > 0 or s.get('pit', 0) > 0 %}
+    {% set has_statcast = yr >= 2015 %}
+    <tr class="{% if not cached %}row-uncached{% endif %}">
+      <td class="admin-yr {% if yr == CURRENT_SEASON %}admin-yr-current{% endif %}">
+        {{ yr }}{% if yr == CURRENT_SEASON %} <span class="badge-current">current</span>{% endif %}
+      </td>
+      <td>{% if s.get('bat') %}{{ s.bat }}{% else %}<span class="text-dim">—</span>{% endif %}</td>
+      <td>{% if s.get('pit') %}{{ s.pit }}{% else %}<span class="text-dim">—</span>{% endif %}</td>
+      <td>
+        {% if has_statcast %}
+          <span class="badge-statcast">xwOBA · xERA · Barrel%</span>
+        {% else %}
+          <span class="text-dim">BRef only</span>
+        {% endif %}
+      </td>
+      <td>
+        <a href="/admin/fetch?season={{ yr }}" class="btn-sm {% if cached %}btn-sm-ghost{% else %}btn-sm-primary{% endif %}">
+          {% if cached %}↺ Refresh{% else %}⬇ Fetch{% endif %}
+        </a>
+        {% if cached %}
+        <a href="/batters?season={{ yr }}" class="btn-sm btn-sm-ghost">View →</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function startRangeFetch(missingOnly) {
+  const start = document.getElementById('range-start').value;
+  const end   = document.getElementById('range-end').value;
+  let url = `/admin/fetch-range?start=${start}&end=${end}`;
+  fetch(url)
+    .then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        document.getElementById('progress-banner').classList.remove('hidden');
+        pollProgress();
+      } else {
+        alert(d.message || 'Could not start fetch');
+      }
+    });
+}
+
+function pollProgress() {
+  fetch('/admin/progress')
+    .then(r => r.json())
+    .then(s => {
+      const banner = document.getElementById('progress-banner');
+      const text   = document.getElementById('progress-text');
+      if (s.running) {
+        banner.classList.remove('hidden');
+        text.textContent = `Fetching ${s.current} — ${s.done} / ${s.total} seasons done...`;
+        setTimeout(pollProgress, 3000);
+      } else if (s.done > 0) {
+        text.textContent = `✓ Done — ${s.done} seasons fetched. Reloading...`;
+        setTimeout(() => location.reload(), 1500);
+      }
+    });
+}
+
+{% if status.running %}
+// Already running on page load — start polling
+setTimeout(pollProgress, 3000);
+{% endif %}
+</script>
+{% endblock %}

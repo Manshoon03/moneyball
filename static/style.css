@@ -217,6 +217,79 @@ th[data-tip]:hover::after { opacity: 1; }
 .refresh-note { color: var(--dim); font-size: 0.78rem; margin-top: 1rem; }
 .refresh-note a { color: var(--accent); }
 
+/* ── Season picker ─────────────────────────────────────────────────────────── */
+.season-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+.season-pick select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.season-pick select:focus { outline: 1px solid var(--accent); }
+.season-hint { color: var(--dim); font-size: 0.72rem; }
+option.uncached { color: #6b7280; }
+
+/* ── Admin page ────────────────────────────────────────────────────────────── */
+.admin-card { margin-bottom: 1.25rem; }
+.admin-card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+.text-dim { color: var(--dim); font-size: 0.82rem; margin-bottom: 0.75rem; display: block; }
+
+.bulk-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+.bulk-controls label { color: var(--dim); font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem; }
+.bulk-controls select {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.82rem;
+}
+
+.admin-season-table { font-size: 0.82rem; }
+.admin-yr { font-weight: 700; font-size: 0.95rem; }
+.admin-yr-current { color: var(--accent); }
+.row-uncached td { color: var(--dim); }
+
+.badge-current  { background: var(--primary); color: #fff; border-radius: 4px; padding: 0.1rem 0.4rem; font-size: 0.68rem; font-weight: 700; margin-left: 4px; }
+.badge-statcast { background: #1a3a1a; color: #4ade80; border-radius: 4px; padding: 0.1rem 0.5rem; font-size: 0.72rem; }
+
+.btn-sm { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-decoration: none; }
+.btn-sm-primary { background: var(--primary); color: #fff; }
+.btn-sm-primary:hover { background: var(--accent); text-decoration: none; }
+.btn-sm-ghost { border: 1px solid var(--border); color: var(--dim); }
+.btn-sm-ghost:hover { color: var(--text); border-color: var(--accent); text-decoration: none; }
+
+/* ── Progress banner ───────────────────────────────────────────────────────── */
+.progress-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #1a2a4a;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
+}
+.progress-banner.hidden { display: none; }
+.progress-spin { font-size: 1.1rem; animation: spin 1.5s linear infinite; }
+.progress-note { color: var(--dim); margin-left: auto; font-size: 0.78rem; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .site-footer {
   text-align: center;
   padding: 0.75rem;

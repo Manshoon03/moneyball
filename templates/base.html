@@ -9,10 +9,29 @@
 <body>
   <nav class="navbar">
     <a href="/" class="nav-brand">⚾ Moneyball</a>
+
     <div class="nav-links">
-      <a href="/batters" class="nav-link {% if request.path == '/batters' %}active{% endif %}">Batters</a>
-      <a href="/pitchers" class="nav-link {% if request.path == '/pitchers' %}active{% endif %}">Pitchers</a>
+      <a href="/batters{% if request.args.get('season') %}?season={{ request.args.get('season') }}{% endif %}"
+         class="nav-link {% if request.path == '/batters' %}active{% endif %}">Batters</a>
+      <a href="/pitchers{% if request.args.get('season') %}?season={{ request.args.get('season') }}{% endif %}"
+         class="nav-link {% if request.path == '/pitchers' %}active{% endif %}">Pitchers</a>
+      <a href="/admin" class="nav-link {% if request.path.startswith('/admin') %}active{% endif %}">Admin</a>
     </div>
+
+    <!-- Season selector -->
+    <div class="season-pick">
+      <select id="season-select" onchange="switchSeason(this.value)">
+        {% for yr in ALL_SEASONS %}
+        <option value="{{ yr }}"
+          {% if yr == (request.args.get('season', CURRENT_SEASON)|int) %}selected{% endif %}
+          {% if yr not in cached_set %}class="uncached"{% endif %}>
+          {{ yr }}{% if yr not in cached_set %} ·{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      <span class="season-hint">· = not cached</span>
+    </div>
+
     <span class="nav-version">v{{ VERSION }}</span>
   </nav>
 
@@ -20,8 +39,16 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="site-footer">Moneyball v{{ VERSION }} · {{ CURRENT_SEASON }} Season</footer>
+  <footer class="site-footer">Moneyball v{{ VERSION }} · Data: Baseball Reference + Baseball Savant</footer>
 
+  <script>
+  function switchSeason(yr) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('season', yr);
+    // Reset to page 1 / default sort when changing seasons
+    window.location.href = url.toString();
+  }
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

@@ -4,7 +4,10 @@
 
 <div class="page-header">
   <h1>Market Inefficiency Dashboard</h1>
-  <p class="subtitle">{{ season }} Season · {{ batter_count }} batters · {{ pitcher_count }} pitchers</p>
+  <p class="subtitle">
+    {{ season }} Season · {{ batter_count }} batters · {{ pitcher_count }} pitchers
+    {% if season >= 2015 %} · <span style="color:#4ade80;font-size:0.78rem;">Statcast enabled</span>{% else %} · <span style="color:#d97706;font-size:0.78rem;">Pre-Statcast (BRef only)</span>{% endif %}
+  </p>
 </div>
 
 {% if not has_data %}
@@ -69,8 +72,9 @@
 </div>
 
 <div class="refresh-note">
-  Data last fetched from FanGraphs.
-  <a href="/admin/fetch?season={{ season }}">Refresh now</a>
+  Data: Baseball Reference + Baseball Savant.
+  <a href="/admin/fetch?season={{ season }}">Refresh {{ season }}</a> ·
+  <a href="/admin">Manage all seasons →</a>
 </div>
 
 {% endif %}

@@ -2,7 +2,7 @@
 Moneyball App — find market inefficiencies in MLB player valuation.
 """
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect
 from dotenv import load_dotenv
 import json
 import os
@@ -13,13 +13,21 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'moneyball-dev')
 
-VERSION = '0.1.0'
+VERSION        = '0.2.0'
 CURRENT_SEASON = 2025
+FIRST_SEASON   = 1980
+ALL_SEASONS    = list(range(CURRENT_SEASON, FIRST_SEASON - 1, -1))
 
 
 @app.context_processor
 def inject_globals():
-    return {'VERSION': VERSION, 'CURRENT_SEASON': CURRENT_SEASON}
+    from data.fetcher import cached_seasons
+    return {
+        'VERSION':        VERSION,
+        'CURRENT_SEASON': CURRENT_SEASON,
+        'ALL_SEASONS':    ALL_SEASONS,
+        'cached_set':     set(cached_seasons().keys()),
+    }
 
 
 db.init_db()
@@ -94,30 +102,54 @@ def _moneyball_score(player, source):
     d = player['data']
     score = 0.0
 
+    age = player.get('age') or 30
+
     if source == 'savant_bat':
-        # xwOBA vs wOBA gap — core luck indicator
-        diff = d.get('xwOBA_diff') or 0   # est_woba - woba (positive = unlucky)
-        score += diff * 200                 # scale to roughly -30..+30
+        has_statcast = bool(d.get('xwOBA'))
 
-        # High Barrel%, low AVG = contact luck, should improve
-        barrel = d.get('Barrel%') or 0
-        avg    = d.get('AVG') or 0
-        if barrel > 10 and avg < 0.250:
-            score += (barrel - 10) * 0.4
+        if has_statcast:
+            # Statcast era (2015+): xwOBA gap is the primary signal
+            diff = d.get('xwOBA_diff') or 0
+            score += diff * 200
+            barrel = d.get('Barrel%') or 0
+            if barrel > 10 and (d.get('AVG') or 0) < 0.250:
+                score += (barrel - 10) * 0.4
+        else:
+            # Pre-Statcast: use original Moneyball metrics
+            # OBP is the classic undervalued stat — high OBP, low AVG = market inefficiency
+            obp = d.get('OBP') or 0
+            avg = d.get('AVG') or 0
+            if obp and avg:
+                score += (obp - avg) * 100   # large OBP-AVG gap = walks, undervalued
+            # High BB%, low K% = good plate discipline
+            k_pct  = d.get('K%') or 0
+            bb_pct = d.get('BB%') or 0
+            if bb_pct > 0.12:
+                score += (bb_pct - 0.12) * 80
+            if k_pct > 0.25:
+                score -= (k_pct - 0.25) * 40
 
-        # Age bonus — ascending players undervalued vs declining
-        age = player.get('age') or 30
+        # Age factor applies in all eras
         if age <= 26:
             score += 5
         elif age >= 33:
             score -= 3
 
     elif source == 'savant_pit':
-        # ERA vs xERA gap — positive diff = ERA higher than deserved = unlucky
-        era_diff = d.get('ERA_xERA_diff') or 0   # era - xera (positive = unlucky)
-        score += era_diff * 4
+        has_statcast = bool(d.get('xERA'))
 
-        # High K%, low BB% = good process regardless of ERA
+        if has_statcast:
+            era_diff = d.get('ERA_xERA_diff') or 0
+            score += era_diff * 4
+        else:
+            # Pre-Statcast: BABIP + K/BB ratio as luck indicators
+            babip = d.get('BABIP') or 0
+            if babip > 0.320:
+                score += (babip - 0.320) * 60   # unlucky, should improve
+            elif babip < 0.260:
+                score -= (0.260 - babip) * 40   # lucky, may regress
+
+        # K% and BB% process metrics apply in all eras
         k_pct  = d.get('K%') or 0
         bb_pct = d.get('BB%') or 0
         if k_pct > 0.25:
@@ -125,7 +157,6 @@ def _moneyball_score(player, source):
         if bb_pct > 0.10:
             score -= (bb_pct - 0.10) * 15
 
-        age = player.get('age') or 30
         if age <= 26:
             score += 3
         elif age >= 35:
@@ -195,13 +226,41 @@ def pitchers():
                            sort=sort, order=order, min_ip=min_ip)
 
 
+@app.route('/admin')
+def admin():
+    from data.fetcher import cached_seasons, get_status, SEASONS_AVAILABLE
+    seasons  = cached_seasons()
+    status   = get_status()
+    return render_template('admin.html',
+                           seasons=seasons,
+                           all_seasons=SEASONS_AVAILABLE[::-1],  # newest first
+                           status=status)
+
+
 @app.route('/admin/fetch')
 def admin_fetch():
-    """Trigger a data refresh manually."""
+    """Fetch a single season synchronously. Redirects to admin page when done."""
     season = request.args.get('season', CURRENT_SEASON, type=int)
     from data.fetcher import fetch_season
-    b, p = fetch_season(season)
-    return jsonify({'ok': True, 'batters': b, 'pitchers': p, 'season': season})
+    fetch_season(season)
+    return redirect('/admin')
+
+
+@app.route('/admin/fetch-range')
+def admin_fetch_range():
+    """Start a background fetch for a range of seasons."""
+    start = request.args.get('start', FIRST_SEASON, type=int)
+    end   = request.args.get('end',   CURRENT_SEASON, type=int)
+    from data.fetcher import fetch_range_background
+    started = fetch_range_background(start, end)
+    return jsonify({'ok': started, 'start': start, 'end': end,
+                    'message': 'Already running' if not started else 'Fetch started'})
+
+
+@app.route('/admin/progress')
+def admin_progress():
+    from data.fetcher import get_status
+    return jsonify(get_status())
 
 
 if __name__ == '__main__':
