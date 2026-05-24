@@ -30,13 +30,14 @@
       <th>Team</th>
       <th>Age</th>
       <th>PA</th>
+      <th>OBP</th>
+      <th>SLG</th>
       <th>wOBA</th>
       <th>xwOBA</th>
       <th title="xwOBA minus wOBA — positive means unlucky, due to improve">Gap</th>
-      <th>wRC+</th>
-      <th>BABIP</th>
       <th>Barrel%</th>
-      <th>WAR</th>
+      <th>EV</th>
+      <th>HR</th>
       <th title="Moneyball Score — how undervalued is this player?">Score</th>
     </tr>
   </thead>
@@ -50,15 +51,16 @@
     <td>{{ p.team }}</td>
     <td>{{ p.age or '—' }}</td>
     <td>{{ d.PA | int if d.PA else '—' }}</td>
+    <td>{{ '%.3f'|format(d.OBP) if d.OBP else '—' }}</td>
+    <td>{{ '%.3f'|format(d.SLG) if d.SLG else '—' }}</td>
     <td>{{ '%.3f'|format(d.wOBA)  if d.wOBA  else '—' }}</td>
     <td>{{ '%.3f'|format(d.xwOBA) if d.xwOBA else '—' }}</td>
     <td class="{% if gap > 0.010 %}stat-good{% elif gap < -0.010 %}stat-bad{% endif %}">
       {{ '%+.3f'|format(gap) if (d.xwOBA and d.wOBA) else '—' }}
     </td>
-    <td>{{ d['wRC+'] | int if d['wRC+'] else '—' }}</td>
-    <td>{{ '%.3f'|format(d.BABIP) if d.BABIP else '—' }}</td>
     <td>{{ '%.1f'|format(d['Barrel%']) if d['Barrel%'] else '—' }}{% if d['Barrel%'] %}%{% endif %}</td>
-    <td>{{ '%.1f'|format(d.WAR) if d.WAR else '—' }}</td>
+    <td>{{ '%.1f'|format(d.EV) if d.EV else '—' }}</td>
+    <td>{{ d.HR | int if d.HR else '—' }}</td>
     <td>
       {% if p.score > 0 %}
         <span class="score-badge score-pos">+{{ p.score }}</span>

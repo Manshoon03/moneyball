@@ -37,7 +37,6 @@ def _load_players(source, season=CURRENT_SEASON, min_pa=None, min_ip=None):
     for r in rows:
         p = dict(r)
         p['data'] = json.loads(p['data_json'] or '{}')
-        # Apply minimum plate appearances / innings pitched filter
         if min_pa and (p['data'].get('PA') or 0) < min_pa:
             continue
         if min_ip and (p['data'].get('IP') or 0) < min_ip:
@@ -55,18 +54,16 @@ def _moneyball_score(player, source):
     d = player['data']
     score = 0.0
 
-    if source == 'fg_bat':
-        # xwOBA vs wOBA gap (luck-adjusted offense)
-        xwoba = d.get('xwOBA') or 0
-        woba  = d.get('wOBA')  or 0
-        if xwoba and woba:
-            score += (xwoba - woba) * 200   # scale to roughly -30..+30
+    if source == 'savant_bat':
+        # xwOBA vs wOBA gap — core luck indicator
+        diff = d.get('xwOBA_diff') or 0   # est_woba - woba (positive = unlucky)
+        score += diff * 200                 # scale to roughly -30..+30
 
-        # High Barrel%, low AVG = BABIP luck
+        # High Barrel%, low AVG = contact luck, should improve
         barrel = d.get('Barrel%') or 0
-        babip  = d.get('BABIP')   or 0
-        if barrel > 10 and babip < 0.280:
-            score += (barrel - 10) * 0.5
+        avg    = d.get('AVG') or 0
+        if barrel > 10 and avg < 0.250:
+            score += (barrel - 10) * 0.4
 
         # Age bonus — ascending players undervalued vs declining
         age = player.get('age') or 30
@@ -75,17 +72,18 @@ def _moneyball_score(player, source):
         elif age >= 33:
             score -= 3
 
-    elif source == 'fg_pit':
-        # FIP vs ERA gap
-        fip = d.get('FIP') or 0
-        era = d.get('ERA') or 0
-        if fip and era:
-            score += (era - fip) * 5    # higher ERA vs FIP = more unlucky
+    elif source == 'savant_pit':
+        # ERA vs xERA gap — positive diff = ERA higher than deserved = unlucky
+        era_diff = d.get('ERA_xERA_diff') or 0   # era - xera (positive = unlucky)
+        score += era_diff * 4
 
-        # xERA vs ERA
-        xera = d.get('xERA') or 0
-        if xera and era:
-            score += (era - xera) * 5
+        # High K%, low BB% = good process regardless of ERA
+        k_pct  = d.get('K%') or 0
+        bb_pct = d.get('BB%') or 0
+        if k_pct > 0.25:
+            score += (k_pct - 0.25) * 20
+        if bb_pct > 0.10:
+            score -= (bb_pct - 0.10) * 15
 
         age = player.get('age') or 30
         if age <= 26:
@@ -101,14 +99,14 @@ def _moneyball_score(player, source):
 @app.route('/')
 def index():
     season  = request.args.get('season', CURRENT_SEASON, type=int)
-    batters = _load_players('fg_bat', season, min_pa=150)
-    pitchers = _load_players('fg_pit', season, min_ip=30)
+    batters = _load_players('savant_bat', season, min_pa=150)
+    pitchers = _load_players('savant_pit', season, min_ip=30)
 
     has_data = bool(batters or pitchers)
 
     # Top buy-low and sell-high teaser for dashboard
     scored_bat = sorted(
-        [dict(p, score=_moneyball_score(p, 'fg_bat')) for p in batters],
+        [dict(p, score=_moneyball_score(p, 'savant_bat')) for p in batters],
         key=lambda x: x['score'], reverse=True
     )
     buy_low  = scored_bat[:5]
@@ -129,8 +127,8 @@ def batters():
     sort    = request.args.get('sort', 'score')
     min_pa  = request.args.get('min_pa', 150, type=int)
 
-    players = _load_players('fg_bat', season, min_pa=min_pa)
-    players = [dict(p, score=_moneyball_score(p, 'fg_bat')) for p in players]
+    players = _load_players('savant_bat', season, min_pa=min_pa)
+    players = [dict(p, score=_moneyball_score(p, 'savant_bat')) for p in players]
 
     if sort == 'score':
         players.sort(key=lambda x: x['score'], reverse=True)
@@ -151,8 +149,8 @@ def pitchers():
     sort    = request.args.get('sort', 'score')
     min_ip  = request.args.get('min_ip', 30, type=int)
 
-    players = _load_players('fg_pit', season, min_ip=min_ip)
-    players = [dict(p, score=_moneyball_score(p, 'fg_pit')) for p in players]
+    players = _load_players('savant_pit', season, min_ip=min_ip)
+    players = [dict(p, score=_moneyball_score(p, 'savant_pit')) for p in players]
 
     if sort == 'score':
         players.sort(key=lambda x: x['score'], reverse=True)
