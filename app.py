@@ -28,7 +28,7 @@ db.init_db()
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _load_players(source, season=CURRENT_SEASON, min_pa=None, min_ip=None):
-    """Return list of player dicts with data_json parsed."""
+    """Return list of player dicts with data_json parsed and derived fields added."""
     rows = db.query(
         "SELECT * FROM player_cache WHERE source=? AND season=? ORDER BY name",
         (source, season)
@@ -36,13 +36,53 @@ def _load_players(source, season=CURRENT_SEASON, min_pa=None, min_ip=None):
     players = []
     for r in rows:
         p = dict(r)
-        p['data'] = json.loads(p['data_json'] or '{}')
-        if min_pa and (p['data'].get('PA') or 0) < min_pa:
+        d = json.loads(p['data_json'] or '{}')
+        # Compute batter K% and BB% from counting stats
+        if source == 'savant_bat':
+            pa = d.get('PA') or 0
+            if pa > 0:
+                d['K%']  = round((d.get('SO') or 0) / pa, 3)
+                d['BB%'] = round((d.get('BB') or 0) / pa, 3)
+        p['data'] = d
+        if min_pa and (d.get('PA') or 0) < min_pa:
             continue
-        if min_ip and (p['data'].get('IP') or 0) < min_ip:
+        if min_ip and (d.get('IP') or 0) < min_ip:
             continue
         players.append(p)
     return players
+
+
+# Sort key maps — used by both batters and pitchers routes
+_BAT_SORT = {
+    'score':  lambda p: p['score'],
+    'age':    lambda p: p.get('age') or 99,
+    'pa':     lambda p: p['data'].get('PA')        or 0,
+    'obp':    lambda p: p['data'].get('OBP')       or 0,
+    'slg':    lambda p: p['data'].get('SLG')       or 0,
+    'ops':    lambda p: p['data'].get('OPS')       or 0,
+    'woba':   lambda p: p['data'].get('wOBA')      or 0,
+    'xwoba':  lambda p: p['data'].get('xwOBA')     or 0,
+    'gap':    lambda p: p['data'].get('xwOBA_diff')or 0,
+    'barrel': lambda p: p['data'].get('Barrel%')   or 0,
+    'ev':     lambda p: p['data'].get('EV')        or 0,
+    'hr':     lambda p: p['data'].get('HR')        or 0,
+    'kpct':   lambda p: p['data'].get('K%')        or 0,
+    'bbpct':  lambda p: p['data'].get('BB%')       or 0,
+}
+
+_PIT_SORT = {
+    'score':  lambda p: p['score'],
+    'age':    lambda p: p.get('age') or 99,
+    'ip':     lambda p: p['data'].get('IP')             or 0,
+    'era':    lambda p: p['data'].get('ERA')             or 99,
+    'xera':   lambda p: p['data'].get('xERA')            or 99,
+    'gap':    lambda p: p['data'].get('ERA_xERA_diff')   or 0,
+    'kpct':   lambda p: p['data'].get('K%')              or 0,
+    'bbpct':  lambda p: p['data'].get('BB%')             or 0,
+    'whip':   lambda p: p['data'].get('WHIP')            or 99,
+    'so9':    lambda p: p['data'].get('SO9')             or 0,
+    'babip':  lambda p: p['data'].get('BABIP')           or 0,
+}
 
 
 def _moneyball_score(player, source):
@@ -125,44 +165,34 @@ def index():
 def batters():
     season  = request.args.get('season', CURRENT_SEASON, type=int)
     sort    = request.args.get('sort', 'score')
+    order   = request.args.get('order', 'desc')
     min_pa  = request.args.get('min_pa', 150, type=int)
 
     players = _load_players('savant_bat', season, min_pa=min_pa)
     players = [dict(p, score=_moneyball_score(p, 'savant_bat')) for p in players]
 
-    if sort == 'score':
-        players.sort(key=lambda x: x['score'], reverse=True)
-    elif sort == 'war':
-        players.sort(key=lambda x: x['data'].get('WAR') or 0, reverse=True)
-    elif sort == 'wrc':
-        players.sort(key=lambda x: x['data'].get('wRC+') or 0, reverse=True)
-    elif sort == 'age':
-        players.sort(key=lambda x: x.get('age') or 99)
+    key_fn  = _BAT_SORT.get(sort, _BAT_SORT['score'])
+    players.sort(key=key_fn, reverse=(order != 'asc'))
 
     return render_template('batters.html', players=players, season=season,
-                           sort=sort, min_pa=min_pa)
+                           sort=sort, order=order, min_pa=min_pa)
 
 
 @app.route('/pitchers')
 def pitchers():
     season  = request.args.get('season', CURRENT_SEASON, type=int)
     sort    = request.args.get('sort', 'score')
+    order   = request.args.get('order', 'desc')
     min_ip  = request.args.get('min_ip', 30, type=int)
 
     players = _load_players('savant_pit', season, min_ip=min_ip)
     players = [dict(p, score=_moneyball_score(p, 'savant_pit')) for p in players]
 
-    if sort == 'score':
-        players.sort(key=lambda x: x['score'], reverse=True)
-    elif sort == 'war':
-        players.sort(key=lambda x: x['data'].get('WAR') or 0, reverse=True)
-    elif sort == 'fip':
-        players.sort(key=lambda x: x['data'].get('FIP') or 99)
-    elif sort == 'age':
-        players.sort(key=lambda x: x.get('age') or 99)
+    key_fn  = _PIT_SORT.get(sort, _PIT_SORT['score'])
+    players.sort(key=key_fn, reverse=(order != 'asc'))
 
     return render_template('pitchers.html', players=players, season=season,
-                           sort=sort, min_ip=min_ip)
+                           sort=sort, order=order, min_ip=min_ip)
 
 
 @app.route('/admin/fetch')

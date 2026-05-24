@@ -201,8 +201,13 @@ def fetch_pitching(season: int, min_ip: int = 20):
             'wOBA_against':   _num(row.get('wOBA_against')),
             'xwOBA_against':  _num(row.get('xwOBA_against')),
         }
+        # SP vs RP from GS/G ratio
+        g  = _num(row.get('G'))  or 1
+        gs = _num(row.get('GS')) or 0
+        role = 'SP' if (gs / g) >= 0.5 else 'RP'
+
         rows.append((
-            player_id, name, team, 'PIT', age,
+            player_id, name, team, role, age,
             json.dumps(data), 'savant_pit', season
         ))
 
@@ -216,11 +221,41 @@ def fetch_pitching(season: int, min_ip: int = 20):
     return len(rows)
 
 
+# ── Positions (MLB Stats API) ──────────────────────────────────────────────────
+
+def fetch_positions(season: int):
+    """Pull primaryPosition for every MLB player and update player_cache."""
+    import requests as req
+    print(f"[fetcher] positions: MLB Stats API {season}...")
+    try:
+        url = f"https://statsapi.mlb.com/api/v1/sports/1/players?season={season}"
+        data = req.get(url, timeout=15).json()
+    except Exception as e:
+        print(f"[fetcher] positions fetch failed: {e}")
+        return 0
+
+    updated = 0
+    for person in data.get('people', []):
+        pid   = str(person.get('id', ''))
+        pos   = person.get('primaryPosition', {}).get('abbreviation', '')
+        if not pid or not pos:
+            continue
+        # Batters keyed as raw mlbID; pitchers prefixed with 'p_'
+        db.execute(
+            "UPDATE player_cache SET position=? WHERE player_id=? AND source='savant_bat'",
+            (pos, pid)
+        )
+        updated += 1
+    print(f"[fetcher] updated positions for {updated} batters")
+    return updated
+
+
 # ── Main entry ────────────────────────────────────────────────────────────────
 
 def fetch_season(season: int):
     b = fetch_batting(season)
     p = fetch_pitching(season)
+    fetch_positions(season)
     db.set_meta(f'last_fetch_{season}', datetime.now().isoformat())
     return b, p
 

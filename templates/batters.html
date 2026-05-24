@@ -2,73 +2,87 @@
 {% block title %}Batters — {{ season }}{% endblock %}
 {% block content %}
 
+{# ── Sort header macro ──────────────────────────────────────────────────────── #}
+{% macro th(label, col, tip, base_qs) %}
+{% set is_active = (sort == col) %}
+{% set next_order = 'asc' if (is_active and order == 'desc') else 'desc' %}
+<th class="sortable {% if is_active %}sorted{% endif %}" data-tip="{{ tip }}">
+  <a href="?sort={{ col }}&order={{ next_order }}&{{ base_qs }}">
+    {{ label }}{% if is_active %} {{ '▲' if order == 'asc' else '▼' }}{% else %}<span class="sort-idle">⇅</span>{% endif %}
+  </a>
+</th>
+{% endmacro %}
+
 <div class="page-header">
   <h1>Batter Value Board</h1>
   <p class="subtitle">{{ season }} · {{ players|length }} qualified batters (min {{ min_pa }} PA)</p>
 </div>
 
 <div class="filter-bar">
-  <span>Sort:</span>
-  <a href="?sort=score&min_pa={{ min_pa }}" class="btn-filter {% if sort=='score' %}active{% endif %}">Moneyball Score</a>
-  <a href="?sort=war&min_pa={{ min_pa }}"   class="btn-filter {% if sort=='war'   %}active{% endif %}">WAR</a>
-  <a href="?sort=wrc&min_pa={{ min_pa }}"   class="btn-filter {% if sort=='wrc'   %}active{% endif %}">wRC+</a>
-  <a href="?sort=age&min_pa={{ min_pa }}"   class="btn-filter {% if sort=='age'   %}active{% endif %}">Age</a>
-  <span class="filter-sep">|</span>
   <span>Min PA:</span>
-  <a href="?sort={{ sort }}&min_pa=50"  class="btn-filter {% if min_pa==50  %}active{% endif %}">50</a>
-  <a href="?sort={{ sort }}&min_pa=150" class="btn-filter {% if min_pa==150 %}active{% endif %}">150</a>
-  <a href="?sort={{ sort }}&min_pa=300" class="btn-filter {% if min_pa==300 %}active{% endif %}">300</a>
+  <a href="?sort={{ sort }}&order={{ order }}&min_pa=50"  class="btn-filter {% if min_pa==50  %}active{% endif %}">50</a>
+  <a href="?sort={{ sort }}&order={{ order }}&min_pa=150" class="btn-filter {% if min_pa==150 %}active{% endif %}">150</a>
+  <a href="?sort={{ sort }}&order={{ order }}&min_pa=300" class="btn-filter {% if min_pa==300 %}active{% endif %}">300</a>
+  <span class="filter-note">Click any column header to sort ▲▼</span>
 </div>
+
+{% set bqs = 'min_pa=' ~ min_pa %}
 
 {% if players %}
 <div class="table-wrap">
 <table class="data-table">
   <thead>
     <tr>
-      <th>#</th>
-      <th>Player</th>
-      <th>Team</th>
-      <th>Age</th>
-      <th>PA</th>
-      <th>OBP</th>
-      <th>SLG</th>
-      <th>wOBA</th>
-      <th>xwOBA</th>
-      <th title="xwOBA minus wOBA — positive means unlucky, due to improve">Gap</th>
-      <th>Barrel%</th>
-      <th>EV</th>
-      <th>HR</th>
-      <th title="Moneyball Score — how undervalued is this player?">Score</th>
+      <th class="col-num">#</th>
+      {{ th('Player',   'name',   'Player name',                                                          bqs) }}
+      {{ th('Team',     'team',   'Current MLB team',                                                     bqs) }}
+      {{ th('Pos',      'pos',    'Primary position',                                                     bqs) }}
+      {{ th('Age',      'age',    'Player age. Younger players are often undervalued — more upside ahead.',bqs) }}
+      {{ th('PA',       'pa',     'Plate Appearances — every time a batter completes an at-bat, including walks, HBP, and sac flies.', bqs) }}
+      {{ th('OBP',      'obp',    'On-Base Percentage — how often the batter reaches base. The original Moneyball metric. League avg ≈ .320', bqs) }}
+      {{ th('SLG',      'slg',    'Slugging Percentage — total bases per at-bat. Measures raw power. League avg ≈ .410', bqs) }}
+      {{ th('wOBA',     'woba',   'Weighted On-Base Average — like OPS but properly weights each outcome (walk, single, HR, etc). League avg ≈ .320', bqs) }}
+      {{ th('xwOBA',    'xwoba',  'Expected wOBA — what the batter\'s wOBA should be based on exit velocity and launch angle. From Baseball Savant.', bqs) }}
+      {{ th('Gap',      'gap',    'xwOBA minus wOBA. Positive = getting unlucky, due to improve. Negative = getting lucky, due to regress. The core buy/sell signal.', bqs) }}
+      {{ th('Barrel%',  'barrel', 'Percentage of batted balls that are "barreled" (optimal exit velo + launch angle). Best predictor of future power production.', bqs) }}
+      {{ th('EV',       'ev',     'Average exit velocity (mph). Higher = harder contact. Elite = 92+ mph.', bqs) }}
+      {{ th('HR',       'hr',     'Home Runs', bqs) }}
+      {{ th('K%',       'kpct',   'Strikeout rate (SO / PA). Lower is better for hitters. League avg ≈ 22%. High K% limits value even with good power.', bqs) }}
+      {{ th('BB%',      'bbpct',  'Walk rate (BB / PA). Higher is better. League avg ≈ 8.5%. The original Moneyball inefficiency — walks were historically undervalued.', bqs) }}
+      {{ th('Score',    'score',  'Moneyball Score — composite measure of how undervalued this player is right now. Positive = buy low. Negative = sell high.', bqs) }}
     </tr>
   </thead>
   <tbody>
   {% for p in players %}
   {% set d = p.data %}
-  {% set gap = ((d.xwOBA or 0) - (d.wOBA or 0)) %}
+  {% set gap = (d.xwOBA_diff or 0) %}
   <tr class="{% if p.score > 5 %}row-buy{% elif p.score < -5 %}row-sell{% endif %}">
-    <td class="row-num">{{ loop.index }}</td>
+    <td class="col-num">{{ loop.index }}</td>
     <td class="player-name">{{ p.name }}</td>
-    <td>{{ p.team }}</td>
+    <td class="col-team">{{ p.team }}</td>
+    <td class="col-pos">{{ p.position or '—' }}</td>
     <td>{{ p.age or '—' }}</td>
     <td>{{ d.PA | int if d.PA else '—' }}</td>
-    <td>{{ '%.3f'|format(d.OBP) if d.OBP else '—' }}</td>
-    <td>{{ '%.3f'|format(d.SLG) if d.SLG else '—' }}</td>
+    <td>{{ '%.3f'|format(d.OBP)   if d.OBP   else '—' }}</td>
+    <td>{{ '%.3f'|format(d.SLG)   if d.SLG   else '—' }}</td>
     <td>{{ '%.3f'|format(d.wOBA)  if d.wOBA  else '—' }}</td>
     <td>{{ '%.3f'|format(d.xwOBA) if d.xwOBA else '—' }}</td>
     <td class="{% if gap > 0.010 %}stat-good{% elif gap < -0.010 %}stat-bad{% endif %}">
       {{ '%+.3f'|format(gap) if (d.xwOBA and d.wOBA) else '—' }}
     </td>
     <td>{{ '%.1f'|format(d['Barrel%']) if d['Barrel%'] else '—' }}{% if d['Barrel%'] %}%{% endif %}</td>
-    <td>{{ '%.1f'|format(d.EV) if d.EV else '—' }}</td>
+    <td>{{ '%.1f'|format(d.EV)         if d.EV         else '—' }}</td>
     <td>{{ d.HR | int if d.HR else '—' }}</td>
+    <td class="{% if (d['K%'] or 0) > 0.28 %}stat-bad{% elif (d['K%'] or 0) < 0.15 %}stat-good{% endif %}">
+      {{ '%.1f'|format((d['K%'] or 0) * 100) if d['K%'] else '—' }}{% if d['K%'] %}%{% endif %}
+    </td>
+    <td class="{% if (d['BB%'] or 0) > 0.12 %}stat-good{% elif (d['BB%'] or 0) < 0.05 %}stat-bad{% endif %}">
+      {{ '%.1f'|format((d['BB%'] or 0) * 100) if d['BB%'] else '—' }}{% if d['BB%'] %}%{% endif %}
+    </td>
     <td>
-      {% if p.score > 0 %}
-        <span class="score-badge score-pos">+{{ p.score }}</span>
-      {% elif p.score < 0 %}
-        <span class="score-badge score-neg">{{ p.score }}</span>
-      {% else %}
-        <span class="score-badge">{{ p.score }}</span>
-      {% endif %}
+      {% if p.score > 0 %}<span class="score-badge score-pos">+{{ p.score }}</span>
+      {% elif p.score < 0 %}<span class="score-badge score-neg">{{ p.score }}</span>
+      {% else %}<span class="score-badge">{{ p.score }}</span>{% endif %}
     </td>
   </tr>
   {% endfor %}
