@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Moneyball — Dashboard{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Market Inefficiency Dashboard</h1>
+  <p class="subtitle">{{ season }} Season · {{ batter_count }} batters · {{ pitcher_count }} pitchers</p>
+</div>
+
+{% if not has_data %}
+<div class="empty-state">
+  <div class="empty-icon">📊</div>
+  <p>No data loaded yet.</p>
+  <p>Fetch the current season:</p>
+  <a href="/admin/fetch?season={{ season }}" class="btn btn-primary">Fetch {{ season }} Data</a>
+</div>
+{% else %}
+
+<div class="dashboard-grid">
+
+  <!-- Buy Low -->
+  <div class="card">
+    <div class="card-header">
+      <h2>🔵 Buy Low</h2>
+      <span class="card-sub">Outperforming their actual stats — due to improve</span>
+    </div>
+    <table class="mini-table">
+      <thead><tr><th>Player</th><th>Team</th><th>Age</th><th>wOBA</th><th>xwOBA</th><th>Score</th></tr></thead>
+      <tbody>
+      {% for p in buy_low %}
+      <tr>
+        <td class="player-name">{{ p.name }}</td>
+        <td>{{ p.team }}</td>
+        <td>{{ p.age or '—' }}</td>
+        <td>{{ '%.3f'|format(p.data.wOBA or 0) }}</td>
+        <td class="stat-good">{{ '%.3f'|format(p.data.xwOBA or 0) }}</td>
+        <td><span class="score-badge score-pos">+{{ p.score }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <a href="/batters?sort=score" class="card-link">View all →</a>
+  </div>
+
+  <!-- Sell High -->
+  <div class="card">
+    <div class="card-header">
+      <h2>🔴 Sell High</h2>
+      <span class="card-sub">Outperforming their underlying metrics — due to regress</span>
+    </div>
+    <table class="mini-table">
+      <thead><tr><th>Player</th><th>Team</th><th>Age</th><th>wOBA</th><th>xwOBA</th><th>Score</th></tr></thead>
+      <tbody>
+      {% for p in sell_high %}
+      <tr>
+        <td class="player-name">{{ p.name }}</td>
+        <td>{{ p.team }}</td>
+        <td>{{ p.age or '—' }}</td>
+        <td>{{ '%.3f'|format(p.data.wOBA or 0) }}</td>
+        <td class="stat-bad">{{ '%.3f'|format(p.data.xwOBA or 0) }}</td>
+        <td><span class="score-badge score-neg">{{ p.score }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <a href="/batters?sort=score" class="card-link">View all →</a>
+  </div>
+
+</div>
+
+<div class="refresh-note">
+  Data last fetched from FanGraphs.
+  <a href="/admin/fetch?season={{ season }}">Refresh now</a>
+</div>
+
+{% endif %}
+{% endblock %}

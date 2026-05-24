@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Moneyball{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="nav-brand">⚾ Moneyball</a>
+    <div class="nav-links">
+      <a href="/batters" class="nav-link {% if request.path == '/batters' %}active{% endif %}">Batters</a>
+      <a href="/pitchers" class="nav-link {% if request.path == '/pitchers' %}active{% endif %}">Pitchers</a>
+    </div>
+    <span class="nav-version">v{{ VERSION }}</span>
+  </nav>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">Moneyball v{{ VERSION }} · {{ CURRENT_SEASON }} Season</footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

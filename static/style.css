@@ -1,0 +1,182 @@
+/* ── Reset & Variables ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f1117;
+  --surface:   #1a1d26;
+  --border:    #2a2d3a;
+  --text:      #e8eaf0;
+  --dim:       #8b8fa8;
+  --primary:   #1a4fa0;
+  --accent:    #3b82f6;
+  --success:   #16a34a;
+  --danger:    #dc2626;
+  --warning:   #d97706;
+  --buy:       #0d3320;
+  --sell:      #3a0d0d;
+  --radius:    8px;
+  --font:      'Segoe UI', system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Navbar ────────────────────────────────────────────────────────────────── */
+.navbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.nav-brand {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text);
+  text-decoration: none;
+}
+.nav-links { display: flex; gap: 1rem; margin-left: 1rem; }
+.nav-link   { color: var(--dim); padding: 0.25rem 0.5rem; border-radius: 4px; }
+.nav-link:hover, .nav-link.active { color: var(--text); background: var(--border); text-decoration: none; }
+.nav-version { margin-left: auto; color: var(--dim); font-size: 0.75rem; }
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+.main-content {
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.page-header { margin-bottom: 1.5rem; }
+.page-header h1 { font-size: 1.5rem; font-weight: 700; }
+.subtitle { color: var(--dim); margin-top: 0.25rem; font-size: 0.85rem; }
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+}
+.card-header { margin-bottom: 0.75rem; }
+.card-header h2 { font-size: 1rem; font-weight: 600; }
+.card-sub { color: var(--dim); font-size: 0.78rem; }
+.card-link { display: block; margin-top: 0.75rem; font-size: 0.82rem; color: var(--accent); }
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Filter Bar ────────────────────────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  color: var(--dim);
+  font-size: 0.82rem;
+}
+.btn-filter {
+  padding: 0.25rem 0.65rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--dim);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+.btn-filter:hover  { color: var(--text); border-color: var(--accent); text-decoration: none; }
+.btn-filter.active { color: var(--text); background: var(--primary); border-color: var(--primary); }
+.filter-sep { color: var(--border); }
+
+/* ── Tables ────────────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+
+.data-table, .mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.data-table th, .mini-table th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 2px solid var(--border);
+  color: var(--dim);
+  white-space: nowrap;
+  font-weight: 600;
+  cursor: default;
+}
+.data-table td, .mini-table td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.data-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+.row-num    { color: var(--dim); text-align: right; width: 2rem; }
+.player-name { font-weight: 500; color: var(--text); }
+
+.row-buy td { background: var(--buy) !important; }
+.row-sell td { background: var(--sell) !important; }
+
+.stat-good { color: #4ade80; font-weight: 600; }
+.stat-bad  { color: #f87171; font-weight: 600; }
+
+/* ── Score Badges ──────────────────────────────────────────────────────────── */
+.score-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.78rem;
+  background: var(--border);
+  color: var(--dim);
+}
+.score-pos { background: #0d3320; color: #4ade80; }
+.score-neg { background: #3a0d0d; color: #f87171; }
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.btn { display: inline-block; padding: 0.5rem 1rem; border-radius: var(--radius);
+       font-size: 0.875rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+.btn-primary { background: var(--primary); color: #fff; border: none; }
+.btn-primary:hover { background: var(--accent); text-decoration: none; }
+
+/* ── Empty State ───────────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--dim);
+}
+.empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+.empty-state p { margin: 0.5rem 0; }
+.empty-state a { color: var(--accent); }
+
+/* ── Misc ──────────────────────────────────────────────────────────────────── */
+.refresh-note { color: var(--dim); font-size: 0.78rem; margin-top: 1rem; }
+.refresh-note a { color: var(--accent); }
+
+.site-footer {
+  text-align: center;
+  padding: 0.75rem;
+  color: var(--dim);
+  font-size: 0.75rem;
+  border-top: 1px solid var(--border);
+}

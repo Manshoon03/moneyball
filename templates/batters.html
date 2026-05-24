@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Batters — {{ season }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Batter Value Board</h1>
+  <p class="subtitle">{{ season }} · {{ players|length }} qualified batters (min {{ min_pa }} PA)</p>
+</div>
+
+<div class="filter-bar">
+  <span>Sort:</span>
+  <a href="?sort=score&min_pa={{ min_pa }}" class="btn-filter {% if sort=='score' %}active{% endif %}">Moneyball Score</a>
+  <a href="?sort=war&min_pa={{ min_pa }}"   class="btn-filter {% if sort=='war'   %}active{% endif %}">WAR</a>
+  <a href="?sort=wrc&min_pa={{ min_pa }}"   class="btn-filter {% if sort=='wrc'   %}active{% endif %}">wRC+</a>
+  <a href="?sort=age&min_pa={{ min_pa }}"   class="btn-filter {% if sort=='age'   %}active{% endif %}">Age</a>
+  <span class="filter-sep">|</span>
+  <span>Min PA:</span>
+  <a href="?sort={{ sort }}&min_pa=50"  class="btn-filter {% if min_pa==50  %}active{% endif %}">50</a>
+  <a href="?sort={{ sort }}&min_pa=150" class="btn-filter {% if min_pa==150 %}active{% endif %}">150</a>
+  <a href="?sort={{ sort }}&min_pa=300" class="btn-filter {% if min_pa==300 %}active{% endif %}">300</a>
+</div>
+
+{% if players %}
+<div class="table-wrap">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Player</th>
+      <th>Team</th>
+      <th>Age</th>
+      <th>PA</th>
+      <th>wOBA</th>
+      <th>xwOBA</th>
+      <th title="xwOBA minus wOBA — positive means unlucky, due to improve">Gap</th>
+      <th>wRC+</th>
+      <th>BABIP</th>
+      <th>Barrel%</th>
+      <th>WAR</th>
+      <th title="Moneyball Score — how undervalued is this player?">Score</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in players %}
+  {% set d = p.data %}
+  {% set gap = ((d.xwOBA or 0) - (d.wOBA or 0)) %}
+  <tr class="{% if p.score > 5 %}row-buy{% elif p.score < -5 %}row-sell{% endif %}">
+    <td class="row-num">{{ loop.index }}</td>
+    <td class="player-name">{{ p.name }}</td>
+    <td>{{ p.team }}</td>
+    <td>{{ p.age or '—' }}</td>
+    <td>{{ d.PA | int if d.PA else '—' }}</td>
+    <td>{{ '%.3f'|format(d.wOBA)  if d.wOBA  else '—' }}</td>
+    <td>{{ '%.3f'|format(d.xwOBA) if d.xwOBA else '—' }}</td>
+    <td class="{% if gap > 0.010 %}stat-good{% elif gap < -0.010 %}stat-bad{% endif %}">
+      {{ '%+.3f'|format(gap) if (d.xwOBA and d.wOBA) else '—' }}
+    </td>
+    <td>{{ d['wRC+'] | int if d['wRC+'] else '—' }}</td>
+    <td>{{ '%.3f'|format(d.BABIP) if d.BABIP else '—' }}</td>
+    <td>{{ '%.1f'|format(d['Barrel%']) if d['Barrel%'] else '—' }}{% if d['Barrel%'] %}%{% endif %}</td>
+    <td>{{ '%.1f'|format(d.WAR) if d.WAR else '—' }}</td>
+    <td>
+      {% if p.score > 0 %}
+        <span class="score-badge score-pos">+{{ p.score }}</span>
+      {% elif p.score < 0 %}
+        <span class="score-badge score-neg">{{ p.score }}</span>
+      {% else %}
+        <span class="score-badge">{{ p.score }}</span>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📊</div>
+  <p>No data. <a href="/admin/fetch?season={{ season }}">Fetch {{ season }} data</a></p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Pitchers — {{ season }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Pitcher Value Board</h1>
+  <p class="subtitle">{{ season }} · {{ players|length }} qualified pitchers (min {{ min_ip }} IP)</p>
+</div>
+
+<div class="filter-bar">
+  <span>Sort:</span>
+  <a href="?sort=score&min_ip={{ min_ip }}" class="btn-filter {% if sort=='score' %}active{% endif %}">Moneyball Score</a>
+  <a href="?sort=war&min_ip={{ min_ip }}"   class="btn-filter {% if sort=='war'   %}active{% endif %}">WAR</a>
+  <a href="?sort=fip&min_ip={{ min_ip }}"   class="btn-filter {% if sort=='fip'   %}active{% endif %}">FIP</a>
+  <a href="?sort=age&min_ip={{ min_ip }}"   class="btn-filter {% if sort=='age'   %}active{% endif %}">Age</a>
+  <span class="filter-sep">|</span>
+  <span>Min IP:</span>
+  <a href="?sort={{ sort }}&min_ip=10"  class="btn-filter {% if min_ip==10  %}active{% endif %}">10</a>
+  <a href="?sort={{ sort }}&min_ip=30"  class="btn-filter {% if min_ip==30  %}active{% endif %}">30</a>
+  <a href="?sort={{ sort }}&min_ip=100" class="btn-filter {% if min_ip==100 %}active{% endif %}">100</a>
+</div>
+
+{% if players %}
+<div class="table-wrap">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Player</th>
+      <th>Team</th>
+      <th>Age</th>
+      <th>IP</th>
+      <th>ERA</th>
+      <th>xERA</th>
+      <th>FIP</th>
+      <th title="ERA minus FIP — positive means unlucky, pitching better than ERA shows">ERA-FIP</th>
+      <th>K%</th>
+      <th>BB%</th>
+      <th>WHIP</th>
+      <th>WAR</th>
+      <th title="Moneyball Score — how undervalued is this pitcher?">Score</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in players %}
+  {% set d = p.data %}
+  {% set era_fip = ((d.ERA or 0) - (d.FIP or 0)) %}
+  <tr class="{% if p.score > 5 %}row-buy{% elif p.score < -5 %}row-sell{% endif %}">
+    <td class="row-num">{{ loop.index }}</td>
+    <td class="player-name">{{ p.name }}</td>
+    <td>{{ p.team }}</td>
+    <td>{{ p.age or '—' }}</td>
+    <td>{{ '%.1f'|format(d.IP) if d.IP else '—' }}</td>
+    <td>{{ '%.2f'|format(d.ERA) if d.ERA else '—' }}</td>
+    <td>{{ '%.2f'|format(d.xERA) if d.xERA else '—' }}</td>
+    <td>{{ '%.2f'|format(d.FIP) if d.FIP else '—' }}</td>
+    <td class="{% if era_fip > 0.30 %}stat-good{% elif era_fip < -0.30 %}stat-bad{% endif %}">
+      {{ '%+.2f'|format(era_fip) if (d.ERA and d.FIP) else '—' }}
+    </td>
+    <td>{{ '%.1f'|format(d['K%'] * 100) if d['K%'] else '—' }}{% if d['K%'] %}%{% endif %}</td>
+    <td>{{ '%.1f'|format(d['BB%'] * 100) if d['BB%'] else '—' }}{% if d['BB%'] %}%{% endif %}</td>
+    <td>{{ '%.2f'|format(d.WHIP) if d.WHIP else '—' }}</td>
+    <td>{{ '%.1f'|format(d.WAR) if d.WAR else '—' }}</td>
+    <td>
+      {% if p.score > 0 %}
+        <span class="score-badge score-pos">+{{ p.score }}</span>
+      {% elif p.score < 0 %}
+        <span class="score-badge score-neg">{{ p.score }}</span>
+      {% else %}
+        <span class="score-badge">{{ p.score }}</span>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📊</div>
+  <p>No data. <a href="/admin/fetch?season={{ season }}">Fetch {{ season }} data</a></p>
+</div>
+{% endif %}
+
+{% endblock %}
