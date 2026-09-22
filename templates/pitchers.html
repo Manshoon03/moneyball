@@ -45,6 +45,8 @@
       {{ th('ERA',     'era',    'Earned Run Average — earned runs allowed per 9 innings. League avg ≈ 4.20. Can be misleading due to defense and luck.', bqs) }}
       {{ th('xERA',    'xera',   'Expected ERA — what ERA should be based on quality of contact allowed (exit velo, launch angle). From Baseball Savant. More predictive than ERA.', bqs) }}
       {{ th('ERA-xERA','gap',    'ERA minus xERA. Positive = pitching better than ERA shows (unlucky, buy low). Negative = ERA flattering the pitcher (sell high).', bqs) }}
+      {{ th('FIP',     'fip',    'Fielding Independent Pitching = (13×HR + 3×(BB+HBP) − 2×SO) / IP + 3.13. Removes defense/luck from ERA. More predictive of future ERA than ERA itself. Available all eras.', bqs) }}
+      {{ th('ERA-FIP', 'fipdiff','ERA minus FIP. Positive = ERA worse than FIP (unlucky, buy low). Negative = ERA better than FIP (getting help, sell high). The pre-Statcast equivalent of ERA-xERA.', bqs) }}
       {{ th('K%',      'kpct',   'Strikeout rate (SO / batters faced). Higher is better. Elite = 28%+. The most repeatable pitching skill.', bqs) }}
       {{ th('BB%',     'bbpct',  'Walk rate (BB / batters faced). Lower is better. Elite = under 7%. Walks are directly within the pitcher\'s control.', bqs) }}
       {{ th('WHIP',    'whip',   'Walks + Hits per Inning Pitched. Measures how many baserunners the pitcher allows. League avg ≈ 1.30.', bqs) }}
@@ -68,6 +70,11 @@
     <td>{{ '%.2f'|format(d.xERA) if d.xERA else '—' }}</td>
     <td class="{% if era_gap > 0.40 %}stat-good{% elif era_gap < -0.40 %}stat-bad{% endif %}">
       {{ '%+.2f'|format(era_gap) if (d.ERA and d.xERA) else '—' }}
+    </td>
+    <td>{{ '%.2f'|format(d.FIP) if d.FIP else '—' }}</td>
+    {% set fip_gap = (d.ERA_FIP_diff or 0) %}
+    <td class="{% if fip_gap > 0.40 %}stat-good{% elif fip_gap < -0.40 %}stat-bad{% endif %}">
+      {{ '%+.2f'|format(fip_gap) if (d.ERA and d.FIP) else '—' }}
     </td>
     <td class="{% if (d['K%'] or 0) > 0.28 %}stat-good{% elif (d['K%'] or 0) < 0.18 %}stat-bad{% endif %}">
       {{ '%.1f'|format((d['K%'] or 0) * 100) if d['K%'] else '—' }}{% if d['K%'] %}%{% endif %}

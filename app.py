@@ -14,7 +14,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'moneyball-dev')
 
-VERSION        = '0.2.1'
+VERSION        = '0.3.0'
 FIRST_SEASON   = 1980
 CURRENT_SEASON = date.today().year
 ALL_SEASONS    = list(range(CURRENT_SEASON, FIRST_SEASON - 1, -1))
@@ -52,6 +52,53 @@ def _load_players(source, season=CURRENT_SEASON, min_pa=None, min_ip=None):
             if pa > 0:
                 d['K%']  = round((d.get('SO') or 0) / pa, 3)
                 d['BB%'] = round((d.get('BB') or 0) / pa, 3)
+            # ── Sabermetric derived stats ──────────────────────────────────
+            ab    = d.get('AB') or 0
+            h     = d.get('H')  or 0
+            hr    = d.get('HR') or 0
+            so    = d.get('SO') or 0
+            sf    = d.get('SF') or 0
+            bb    = d.get('BB') or 0
+            two_b = d.get('2B') or 0
+            thr_b = d.get('3B') or 0
+            slg   = d.get('SLG') or 0
+            avg   = d.get('AVG') or 0
+            obp   = d.get('OBP') or 0
+            # ISO — Isolated Power (pure extra-base power)
+            if slg and avg:
+                d['ISO'] = round(slg - avg, 3)
+            # BABIP — luck indicator on balls in play
+            denom = ab - so - hr + sf
+            if denom > 0 and h:
+                d['BABIP'] = round((h - hr) / denom, 3)
+            # OBP Premium — walk discipline over batting avg
+            if obp and avg:
+                d['OBP_Premium'] = round(obp - avg, 3)
+            # K-BB% — discipline / contact quality combined
+            if d.get('K%') is not None:
+                d['K_BB'] = round((d.get('K%') or 0) - (d.get('BB%') or 0), 3)
+            # Runs Created — (H+BB)*TB / (AB+BB)
+            tb = h + two_b + 2 * thr_b + 3 * hr
+            if tb and (ab + bb) > 0:
+                d['RC'] = round((h + bb) * tb / (ab + bb), 1)
+
+        elif source == 'savant_pit':
+            # ── FIP and K-BB% for pitchers ────────────────────────────────
+            ip  = d.get('IP')  or 0
+            hr  = d.get('HR')  or 0
+            bb  = d.get('BB')  or 0
+            so  = d.get('SO')  or 0
+            hbp = d.get('HBP') or 0
+            era = d.get('ERA') or 0
+            if ip > 0:
+                fip = round((13 * hr + 3 * (bb + hbp) - 2 * so) / ip + 3.13, 2)
+                d['FIP'] = fip
+                if era:
+                    # positive = ERA worse than FIP → unlucky, due to improve (buy)
+                    d['ERA_FIP_diff'] = round(era - fip, 2)
+            if d.get('K%') is not None:
+                d['K_BB'] = round((d.get('K%') or 0) - (d.get('BB%') or 0), 3)
+
         p['data'] = d
         if min_pa and (d.get('PA') or 0) < min_pa:
             continue
@@ -65,32 +112,40 @@ def _load_players(source, season=CURRENT_SEASON, min_pa=None, min_ip=None):
 _BAT_SORT = {
     'score':  lambda p: p['score'],
     'age':    lambda p: p.get('age') or 99,
-    'pa':     lambda p: p['data'].get('PA')        or 0,
-    'obp':    lambda p: p['data'].get('OBP')       or 0,
-    'slg':    lambda p: p['data'].get('SLG')       or 0,
-    'ops':    lambda p: p['data'].get('OPS')       or 0,
-    'woba':   lambda p: p['data'].get('wOBA')      or 0,
-    'xwoba':  lambda p: p['data'].get('xwOBA')     or 0,
-    'gap':    lambda p: p['data'].get('xwOBA_diff')or 0,
-    'barrel': lambda p: p['data'].get('Barrel%')   or 0,
-    'ev':     lambda p: p['data'].get('EV')        or 0,
-    'hr':     lambda p: p['data'].get('HR')        or 0,
-    'kpct':   lambda p: p['data'].get('K%')        or 0,
-    'bbpct':  lambda p: p['data'].get('BB%')       or 0,
+    'pa':     lambda p: p['data'].get('PA')          or 0,
+    'obp':    lambda p: p['data'].get('OBP')         or 0,
+    'slg':    lambda p: p['data'].get('SLG')         or 0,
+    'ops':    lambda p: p['data'].get('OPS')         or 0,
+    'woba':   lambda p: p['data'].get('wOBA')        or 0,
+    'xwoba':  lambda p: p['data'].get('xwOBA')       or 0,
+    'gap':    lambda p: p['data'].get('xwOBA_diff')  or 0,
+    'barrel': lambda p: p['data'].get('Barrel%')     or 0,
+    'ev':     lambda p: p['data'].get('EV')          or 0,
+    'hr':     lambda p: p['data'].get('HR')          or 0,
+    'kpct':   lambda p: p['data'].get('K%')          or 0,
+    'bbpct':  lambda p: p['data'].get('BB%')         or 0,
+    'iso':    lambda p: p['data'].get('ISO')         or 0,
+    'babip':  lambda p: p['data'].get('BABIP')       or 0,
+    'kbb':    lambda p: p['data'].get('K_BB')        or 0,
+    'rc':     lambda p: p['data'].get('RC')          or 0,
+    'obprem': lambda p: p['data'].get('OBP_Premium') or 0,
 }
 
 _PIT_SORT = {
-    'score':  lambda p: p['score'],
-    'age':    lambda p: p.get('age') or 99,
-    'ip':     lambda p: p['data'].get('IP')             or 0,
-    'era':    lambda p: p['data'].get('ERA')             or 99,
-    'xera':   lambda p: p['data'].get('xERA')            or 99,
-    'gap':    lambda p: p['data'].get('ERA_xERA_diff')   or 0,
-    'kpct':   lambda p: p['data'].get('K%')              or 0,
-    'bbpct':  lambda p: p['data'].get('BB%')             or 0,
-    'whip':   lambda p: p['data'].get('WHIP')            or 99,
-    'so9':    lambda p: p['data'].get('SO9')             or 0,
-    'babip':  lambda p: p['data'].get('BABIP')           or 0,
+    'score':   lambda p: p['score'],
+    'age':     lambda p: p.get('age') or 99,
+    'ip':      lambda p: p['data'].get('IP')            or 0,
+    'era':     lambda p: p['data'].get('ERA')            or 99,
+    'xera':    lambda p: p['data'].get('xERA')           or 99,
+    'gap':     lambda p: p['data'].get('ERA_xERA_diff')  or 0,
+    'kpct':    lambda p: p['data'].get('K%')             or 0,
+    'bbpct':   lambda p: p['data'].get('BB%')            or 0,
+    'whip':    lambda p: p['data'].get('WHIP')           or 99,
+    'so9':     lambda p: p['data'].get('SO9')            or 0,
+    'babip':   lambda p: p['data'].get('BABIP')          or 0,
+    'fip':     lambda p: p['data'].get('FIP')            or 99,
+    'fipdiff': lambda p: p['data'].get('ERA_FIP_diff')   or 0,
+    'kbb':     lambda p: p['data'].get('K_BB')           or 0,
 }
 
 
@@ -129,6 +184,10 @@ def _moneyball_score(player, source):
                 score += (bb_pct - 0.12) * 80
             if k_pct > 0.25:
                 score -= (k_pct - 0.25) * 40
+            # ISO — high power relative to batting avg = undervalued slugger
+            iso = d.get('ISO') or 0
+            if iso > 0.200:
+                score += (iso - 0.200) * 30
 
         # Age factor applies in all eras
         if age <= 26:
@@ -143,12 +202,17 @@ def _moneyball_score(player, source):
             era_diff = d.get('ERA_xERA_diff') or 0
             score += era_diff * 4
         else:
-            # Pre-Statcast: BABIP + K/BB ratio as luck indicators
-            babip = d.get('BABIP') or 0
-            if babip > 0.320:
-                score += (babip - 0.320) * 60   # unlucky, should improve
-            elif babip < 0.260:
-                score -= (0.260 - babip) * 40   # lucky, may regress
+            # Pre-Statcast: FIP-ERA gap is the primary signal (ERA > FIP = unlucky, buy)
+            fip_diff = d.get('ERA_FIP_diff') or 0
+            if fip_diff:
+                score += fip_diff * 4
+            else:
+                # Fallback when FIP not computable: BABIP luck indicator
+                babip = d.get('BABIP') or 0
+                if babip > 0.320:
+                    score += (babip - 0.320) * 60   # unlucky, should improve
+                elif babip < 0.260:
+                    score -= (0.260 - babip) * 40   # lucky, may regress
 
         # K% and BB% process metrics apply in all eras
         k_pct  = d.get('K%') or 0

@@ -41,6 +41,7 @@
       {{ th('PA',       'pa',     'Plate Appearances — every time a batter completes an at-bat, including walks, HBP, and sac flies.', bqs) }}
       {{ th('OBP',      'obp',    'On-Base Percentage — how often the batter reaches base. The original Moneyball metric. League avg ≈ .320', bqs) }}
       {{ th('SLG',      'slg',    'Slugging Percentage — total bases per at-bat. Measures raw power. League avg ≈ .410', bqs) }}
+      {{ th('ISO',      'iso',    'Isolated Power (SLG − AVG) — pure extra-base power, strips out singles. Elite = .200+. Undervalued sluggers with low AVG are a classic Moneyball target.', bqs) }}
       {{ th('wOBA',     'woba',   'Weighted On-Base Average — like OPS but properly weights each outcome (walk, single, HR, etc). League avg ≈ .320', bqs) }}
       {{ th('xwOBA',    'xwoba',  'Expected wOBA — what the batter\'s wOBA should be based on exit velocity and launch angle. From Baseball Savant.', bqs) }}
       {{ th('Gap',      'gap',    'xwOBA minus wOBA. Positive = getting unlucky, due to improve. Negative = getting lucky, due to regress. The core buy/sell signal.', bqs) }}
@@ -49,6 +50,8 @@
       {{ th('HR',       'hr',     'Home Runs', bqs) }}
       {{ th('K%',       'kpct',   'Strikeout rate (SO / PA). Lower is better for hitters. League avg ≈ 22%. High K% limits value even with good power.', bqs) }}
       {{ th('BB%',      'bbpct',  'Walk rate (BB / PA). Higher is better. League avg ≈ 8.5%. The original Moneyball inefficiency — walks were historically undervalued.', bqs) }}
+      {{ th('K-BB%',    'kbb',    'Strikeout rate minus Walk rate. Lower is better — elite contact hitters with good discipline have negative K-BB%. League avg ≈ 13%.', bqs) }}
+      {{ th('BABIP',    'babip',  'Batting Average on Balls In Play (H−HR)/(AB−SO−HR+SF). League avg ≈ .300. Low BABIP = getting unlucky, likely to improve. High BABIP = may be getting lucky.', bqs) }}
       {{ th('Score',    'score',  'Moneyball Score — composite measure of how undervalued this player is right now. Positive = buy low. Negative = sell high.', bqs) }}
     </tr>
   </thead>
@@ -65,6 +68,9 @@
     <td>{{ d.PA | int if d.PA else '—' }}</td>
     <td>{{ '%.3f'|format(d.OBP)   if d.OBP   else '—' }}</td>
     <td>{{ '%.3f'|format(d.SLG)   if d.SLG   else '—' }}</td>
+    <td class="{% if (d.ISO or 0) > 0.200 %}stat-good{% elif (d.ISO or 0) > 0 and (d.ISO or 0) < 0.100 %}stat-bad{% endif %}">
+      {{ '%.3f'|format(d.ISO) if d.ISO else '—' }}
+    </td>
     <td>{{ '%.3f'|format(d.wOBA)  if d.wOBA  else '—' }}</td>
     <td>{{ '%.3f'|format(d.xwOBA) if d.xwOBA else '—' }}</td>
     <td class="{% if gap > 0.010 %}stat-good{% elif gap < -0.010 %}stat-bad{% endif %}">
@@ -78,6 +84,12 @@
     </td>
     <td class="{% if (d['BB%'] or 0) > 0.12 %}stat-good{% elif (d['BB%'] or 0) < 0.05 %}stat-bad{% endif %}">
       {{ '%.1f'|format((d['BB%'] or 0) * 100) if d['BB%'] else '—' }}{% if d['BB%'] %}%{% endif %}
+    </td>
+    <td class="{% if (d.K_BB or 0) < 0.05 %}stat-good{% elif (d.K_BB or 0) > 0.20 %}stat-bad{% endif %}">
+      {{ '%+.1f'|format((d.K_BB or 0) * 100) if d.K_BB is not none else '—' }}{% if d.K_BB is not none %}%{% endif %}
+    </td>
+    <td class="{% if (d.BABIP or 0) < 0.270 %}stat-bad{% elif (d.BABIP or 0) > 0.350 %}stat-good{% endif %}">
+      {{ '%.3f'|format(d.BABIP) if d.BABIP else '—' }}
     </td>
     <td>
       {% if p.score > 0 %}<span class="score-badge score-pos">+{{ p.score }}</span>
